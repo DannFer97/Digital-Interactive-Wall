@@ -1,4 +1,4 @@
-# Muro Digital Interactivo
+##Muro Digital Interactivo
 
 Este proyecto se basa en realizar un marco táctil a través de una matriz de sensores infrarrojos y através de esta matriz obtener la posición y poder interactuar con varios juegos creados en Unity.
 En este reposotorio se encuentran todos los Archivos necesarios para poder llevar a cabo este proyecto, desde la comunicación serial que obtiene las coordenadas de posición del marco hasta los assets de cada uno de los juegos 
