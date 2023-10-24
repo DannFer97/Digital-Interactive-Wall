@@ -1,0 +1,10 @@
+Resultados de Validación:
+Coordenada: A1, Válidas: 2, Inválidas: 0
+Coordenada: A2, Válidas: 2, Inválidas: 0
+Coordenada: B1, Válidas: 0, Inválidas: 2
+Coordenada: B2, Válidas: 1, Inválidas: 1
+Accuracy Calculado:
+Coordenada: A1, Porcentaje de Exactitud: 100%
+Coordenada: A2, Porcentaje de Exactitud: 100%
+Coordenada: B1, Porcentaje de Exactitud: 0%
+Coordenada: B2, Porcentaje de Exactitud: 50%
