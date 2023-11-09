@@ -21,21 +21,23 @@ public class SerialManager : MonoBehaviour
     private SynchronizationContext mainThread;
     private char incomingChar;
     private string incomingString;
+    private string count;
 
     public static bool IsWaiting { get; private set; } = false;
     private float waitingTime = 5f; // Tiempo de espera en segundos
     private float waitStartTime;
-    private bool canExecute = true; // Variable de control
-    private float cooldownTime = 1f; // Tiempo de enfriamiento en segundos
 
     public delegate void SerialEvent(string incomingString);
     public static event SerialEvent WhenReceiveDataCall;
-    private float lastPercentReceivedTime;
-    private string datos;
     public List<string> receivedData = new List<string>();
+    public List<string> lastTenReceived = new List<string>();
     // Declara una variable para mantener la coordenada anterior
-    private float processingDelay = 0.1f;
-    private bool hasProcceded=false;
+    private float processingDelay = 1f;
+    private bool hasProcceded = false;
+    private string lastSentData = "";
+    private int cont=0;
+    private int receivedCount = 0;
+    private int maxReceivedCount = 10; // Cambia este valor al número deseado
     
 
     private void Awake()
@@ -71,7 +73,7 @@ public class SerialManager : MonoBehaviour
         // Verificar si el puerto serial no está abierto antes de intentar abrirlo
         if (puerto == null || !puerto.IsOpen)
         {
-            puerto = new SerialPort("COM3", 115200);
+            puerto = new SerialPort("COM10", 115200);
             puerto.Open();
             Debug.Log("Puerto serial abierto");
             puerto.DiscardInBuffer();
@@ -87,129 +89,90 @@ public class SerialManager : MonoBehaviour
         }
     }
     
-    void Receive(){
-        
-        while (true){
-            if (abort){
+    void Receive()
+    {
+        while (true)
+        {
+            if (abort)
+            {
                 serialThread.Abort();
                 break;
             }
-            try {
-                incomingChar = (char)puerto.ReadChar();
-                //Debug.Log("IncomingChar: "+incomingChar);
-            }
-            catch (Exception  ){ }
-            
-            if(!incomingChar.Equals('%')){
-                incomingString += incomingChar;
-                
-                //Debug.Log("Incoming String: "+incomingString);
-                
-            } 
-            else 
+            try
             {
-                
-                
-                    mainThread.Send((object state) =>
+                incomingChar = (char)puerto.ReadChar();
+            }
+            catch (Exception)
+            {
+            }
+
+            if (!incomingChar.Equals('%'))
+            {
+                incomingString += incomingChar;
+            }
+            else
+            {
+                mainThread.Send((object state) =>
+                {
+                    if (WhenReceiveDataCall != null)
                     {
-                         
-                        if (WhenReceiveDataCall != null)
-                    {
-                    WhenReceiveDataCall(incomingString);
-                    
-                        if (incomingString !="" && !incomingString.Contains('Z') && !incomingString.Contains('X'))
+                        //WhenReceiveDataCall(incomingString);
+
+                        if (incomingString != "" && !incomingString.Contains('Z') && !incomingString.Contains('X'))
                         {
                             receivedData.Add(incomingString);
-                            //Debug.Log("elementos: "+receivedData.Count);
-                            Debug.Log("elementos: " +receivedData.Count);
-                            waitStartTime = Time.time;
-                            
-                        }
-                        
-                        
-                        
-                    // Agregar la cadena de caracteres sin el '%' a la lista
-                    // Si se ha acumulado suficientes elementos y ha pasado el tiempo necesario, procesa los datos
-                    //if (receivedData.Count > 1  && Time.time - waitStartTime >= processingDelay) 
-                    //{
-                    //Debug.Log("ENTRA");
-                    //Debug.Log("time: "+Time.time);
-                    //Debug.Log("waitStartTime: "+waitStartTime);
-                       // if (receivedData.Count < 500  )
-                        //{
-                        // Si la lista tiene elementos, enviar el primero
-                       /* if (receivedData.Count > 10)
-                        {
-                            WhenReceiveDataCall(receivedData[1]);
-                            //receivedData.RemoveAt(0); // Eliminar el elemento enviado
-                            
-                            //receivedData.Clear();
-                        //}*/
-                        /*if (receivedData.Count >5){
+                            lastTenReceived.Add(incomingString);
+                            receivedCount++;
 
-                        // Contar la frecuencia de cada elemento en la lista
-                            Dictionary<string, int> frequency = new Dictionary<string, int>();
-                            foreach (string data in receivedData)
+                            if (receivedCount >= maxReceivedCount)
                             {
-                                if (frequency.ContainsKey(data))
-                                frequency[data]++;
-                                else
-                                frequency[data] = 1;
-                            }
+                                receivedCount = 0; // Reinicia el contador
+                                receivedData.Clear();
+                                waitStartTime = Time.time;
+                                puerto.DiscardInBuffer();
 
-                            // Encontrar el elemento con la frecuencia más alta
-                            string mostRepeatedData = null;
-                            //Debug.Log("mas repetido: "+mostRepeatedData);
-                            int maxFrequency = 0;
-                            //string mostRepeatedData = receivedData[0];
-                            //int maxFrequency = frequency[mostRepeatedData];
-                            foreach (var pair in frequency)
-                            {
-                                if (pair.Value > maxFrequency)
+                                // Procesa los últimos 10 elementos
+                                if (lastTenReceived.Count > 0)
                                 {
-                                    maxFrequency = pair.Value;
-                                    mostRepeatedData = pair.Key;
+                                    Dictionary<string, int> frequency = new Dictionary<string, int>();
+
+                                    // Contar las ocurrencias de cada elemento
+                                    foreach (string data in lastTenReceived)
+                                    {
+                                        if (frequency.ContainsKey(data))
+                                            frequency[data]++;
+                                        else
+                                            frequency[data] = 1;
+                                    }
+
+                                    string mostRepeatedData = null;
+                                    int maxFrequency = 0;
+
+                                    // Encontrar el elemento más repetido
+                                    foreach (var pair in frequency)
+                                    {
+                                        if (pair.Value > maxFrequency)
+                                        {
+                                            maxFrequency = pair.Value;
+                                            mostRepeatedData = pair.Key;
+                                        }
+                                        //Debug.Log("most repeated data: "+mostRepeatedData);
+                                    }
+                                    //Debug.Log("most repeated data: "+mostRepeatedData);
+                                    WhenReceiveDataCall(mostRepeatedData);
                                 }
+
+                                lastTenReceived.Clear();
                             }
-
-                            // Enviar el elemento más repetido
-                            WhenReceiveDataCall(mostRepeatedData);
-                            hasProcceded=true;
-                            Debug.Log("ENVIA: "+mostRepeatedData);
-                            receivedData.Clear();
-                            waitStartTime= Time.time;
-                            //Thread.Sleep(1000);
                         }
-                        
-                    
-                
-                    //}
-                    
-            
-                    
-                    
-
-                    /*if (receivedData.Count>5 && hasProcceded){
-                        receivedData.Clear();
-                        hasProcceded=false;
-                    }*/
-                        
-                        
+                        else
+                        {
+                            receivedData.Clear();
+                        }
                     }
-                    else
-                    {
-                        receivedData.Clear();
-                    }
-                    
-               // }
-            }, null);
+                }, null);
 
                 incomingString = "";
-                //receivedData.Clear();
-                // Si se ha acumulado suficientes elementos y ha pasado el tiempo necesario, establece la hora de espera
-            
-                
-                
             }
         }
     }
@@ -225,32 +188,5 @@ public class SerialManager : MonoBehaviour
     /*public static void SendInfo (string infoToSend){
         puerto.Write(infoToSend);
     }*/
-    void LimpiarBuffer()
-    {
-        puerto.DiscardInBuffer();
-        puerto.DiscardOutBuffer();
-        Debug.Log("Se limpio el buffer");
-    }
-
-    void Update() {
-    if (IsWaiting && Time.time - waitStartTime >= waitingTime) {
-        IsWaiting = false;
-    }
-
-    }
-    // Función para encontrar el elemento más repetido en el diccionario
-    private string FindMostRepeatedData(Dictionary<string, int> frequency) {
-        string mostRepeatedData = null;
-        int maxFrequency = 0;
-
-        foreach (var pair in frequency) {
-            if (pair.Value > maxFrequency) {
-                maxFrequency = pair.Value;
-                mostRepeatedData = pair.Key;
-            }
-        }
-
-        return mostRepeatedData;
-    }
 
 }
